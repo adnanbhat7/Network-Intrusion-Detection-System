@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShieldNet IDS</title>
+  <link rel="stylesheet" href="static/css/main.css">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header class="nav">
+    <div class="container nav-inner">
+      <span class="nav-logo">ShieldNet IDS</span>
+      <nav class="nav-links">
+        <a href="#simulator">Simulator</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#model">Model</a>
+      </nav>
+      <span class="nav-badge">
+        <span class="dot-green"></span> Model Online
+      </span>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <p class="eyebrow">CIC-IDS 2017 / 2018 &nbsp;·&nbsp; 4-Class Classifier</p>
+      <h1>Network Intrusion<br>Detection System</h1>
+      <p class="hero-sub">A 1D-CNN trained on 50 flow-level features classifies network traffic into Benign, DoS, BruteForce, and Botnet in under 2 ms.</p>
+      <div class="hero-actions">
+        <a href="#simulator" class="btn btn-primary">Open Simulator</a>
+        <a href="#how-it-works" class="btn btn-ghost">How It Works</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hstat"><div class="hstat-num">95%</div><div class="hstat-lbl">Macro F1</div></div>
+        <div class="hstat-sep"></div>
+        <div class="hstat"><div class="hstat-num">4</div><div class="hstat-lbl">Threat Classes</div></div>
+        <div class="hstat-sep"></div>
+        <div class="hstat"><div class="hstat-num">&lt;2 ms</div><div class="hstat-lbl">Inference</div></div>
+        <div class="hstat-sep"></div>
+        <div class="hstat"><div class="hstat-num">50</div><div class="hstat-lbl">Features</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="simulator">
+    <div class="container">
+      <p class="section-label">Live Demo</p>
+      <h2 class="section-title">Attack Simulator</h2>
+      <p class="section-sub">Select a traffic type and inject a synthetic flow. The model analyses it in real time.</p>
+
+      <div class="sim-grid">
+
+        <div class="sim-left">
+          <div class="panel">
+            <div class="panel-title">Traffic Type</div>
+            <div class="type-grid" id="typeGrid">
+              <button class="type-btn active" data-type="Benign" onclick="selectType(this)">
+                <div class="type-name">Benign</div>
+                <div class="type-desc">Normal HTTP / DNS</div>
+              </button>
+              <button class="type-btn" data-type="DoS" onclick="selectType(this)">
+                <div class="type-name">DoS</div>
+                <div class="type-desc">SYN flood</div>
+              </button>
+              <button class="type-btn" data-type="BruteForce" onclick="selectType(this)">
+                <div class="type-name">Brute Force</div>
+                <div class="type-desc">SSH credential enum</div>
+              </button>
+              <button class="type-btn" data-type="Botnet" onclick="selectType(this)">
+                <div class="type-name">Botnet</div>
+                <div class="type-desc">C&amp;C beaconing</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">Speed</div>
+            <select id="speedSel" class="select">
+              <option value="1400">Slow — presentation mode</option>
+              <option value="650" selected>Normal</option>
+              <option value="150">Fast</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary btn-full" id="injectBtn" onclick="runDetection()">
+            Inject &amp; Detect
+          </button>
+
+          <div class="panel">
+            <div class="panel-title">Session Stats</div>
+            <div class="stats-list">
+              <div class="stat-row"><span>Flows analysed</span><strong id="cTotal">0</strong></div>
+              <div class="stat-row"><span>Allowed</span><strong class="c-green" id="cAllow">0</strong></div>
+              <div class="stat-row"><span>Blocked</span><strong class="c-red" id="cBlock">0</strong></div>
+              <div class="stat-row"><span>Avg latency</span><strong id="cLat">—</strong></div>
+            </div>
+          </div>
+
+          <div class="panel" id="histPanel" style="display:none">
+            <div class="panel-title">Recent Verdicts</div>
+            <div id="histList"></div>
+          </div>
+        </div>
+
+        <div class="sim-center">
+          <div class="panel">
+            <div class="panel-title">Detection Pipeline</div>
+            <div class="pipeline" id="pipeline">
+              <div class="stage" id="st0"><div class="stage-name">Capture</div><div class="stage-status" id="ss0">idle</div></div>
+              <div class="arrow">→</div>
+              <div class="stage" id="st1"><div class="stage-name">Features</div><div class="stage-status" id="ss1">—</div></div>
+              <div class="arrow">→</div>
+              <div class="stage" id="st2"><div class="stage-name">Scale</div><div class="stage-status" id="ss2">—</div></div>
+              <div class="arrow">→</div>
+              <div class="stage" id="st3"><div class="stage-name">CNN</div><div class="stage-status" id="ss3">—</div></div>
+              <div class="arrow">→</div>
+              <div class="stage" id="st4"><div class="stage-name">Verdict</div><div class="stage-status" id="ss4">—</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">Flow Feature Vector <span class="title-note">(anomalous values highlighted)</span></div>
+            <div class="feat-grid" id="featGrid"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">AI Model Analysis <span class="badge" id="aiBadge">idle</span></div>
+            <div class="ai-output" id="aiOutput">Awaiting flow injection...</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">Softmax Output — Class Probabilities</div>
+            <div class="conf-bars" id="confBars">
+              <div class="conf-row"><span class="conf-lbl">Benign</span><div class="conf-track"><div class="conf-fill" id="cf0" style="background:#2d6a4f;width:0"></div></div><span class="conf-pct" id="cp0">—</span></div>
+              <div class="conf-row"><span class="conf-lbl">DoS</span><div class="conf-track"><div class="conf-fill" id="cf1" style="background:#9b2226;width:0"></div></div><span class="conf-pct" id="cp1">—</span></div>
+              <div class="conf-row"><span class="conf-lbl">BruteForce</span><div class="conf-track"><div class="conf-fill" id="cf2" style="background:#7d4e00;width:0"></div></div><span class="conf-pct" id="cp2">—</span></div>
+              <div class="conf-row"><span class="conf-lbl">Botnet</span><div class="conf-track"><div class="conf-fill" id="cf3" style="background:#1d3557;width:0"></div></div><span class="conf-pct" id="cp3">—</span></div>
+            </div>
+          </div>
+
+          <div class="verdict-box" id="verdictBox" style="display:none">
+            <div class="verdict-head" id="verdictHead"></div>
+            <div class="verdict-detail" id="verdictDetail"></div>
+            <div class="verdict-meta" id="verdictMeta"></div>
+          </div>
+        </div>
+
+        <div class="sim-right">
+          <div class="panel log-panel">
+            <div class="panel-title">Detection Log</div>
+            <div class="log-body" id="logBody">
+              <div class="log-entry log-info">
+                <span class="log-ts" id="initTs"></span>
+                <span>Engine initialised. CNN model loaded.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="how-it-works">
+    <div class="container">
+      <p class="section-label">Architecture</p>
+      <h2 class="section-title">How It Works</h2>
+      <p class="section-sub">Every network connection generates a flow record. ShieldNet analyses it through a five-stage pipeline.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">01</div><div><div class="step-title">Packet Capture</div><p>Raw packets are intercepted at the network interface. CICFlowMeter converts bidirectional flows into structured records containing timing, size, and flag statistics.</p></div></div>
+        <div class="step"><div class="step-num">02</div><div><div class="step-title">Feature Extraction</div><p>50 statistical features are computed: forward/backward packet rates, inter-arrival times, payload size distributions, TCP flag counts, and 4 engineered ratio features validated by Mutual Information scoring.</p></div></div>
+        <div class="step"><div class="step-num">03</div><div><div class="step-title">RobustScaler Normalisation</div><p>Features are scaled using IQR-based normalisation. RobustScaler is chosen over StandardScaler because attack traffic produces extreme outliers that distort mean-based scaling.</p></div></div>
+        <div class="step"><div class="step-num">04</div><div><div class="step-title">CNN Inference</div><p>A 1D-CNN (Conv1D 32→64 filters, GlobalAveragePooling, Dense 128→64, Dropout) processes the normalised feature vector and outputs a 4-class softmax probability distribution.</p></div></div>
+        <div class="step"><div class="step-num">05</div><div><div class="step-title">Firewall Verdict</div><p>The dominant class determines action. Benign traffic passes. DoS, BruteForce, and Botnet traffic is blocked, the source is quarantined, and an alert is logged.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="model">
+    <div class="container">
+      <p class="section-label">Technical Details</p>
+      <h2 class="section-title">Model &amp; Dataset</h2>
+      <p class="section-sub">Trained on CIC-IDS 2017/2018. Optimised for Macro F1 to handle severe class imbalance.</p>
+      <div class="model-grid">
+        <div class="model-card"><div class="mc-title">Dataset</div><p>CIC-IDS 2017/2018. Four classes: Benign, DoS, BruteForce, Botnet. Severe imbalance — Benign ≫ Botnet — addressed with BorderlineSMOTE and SMOTETomek oversampling.</p></div>
+        <div class="model-card"><div class="mc-title">Architecture</div><p>1D-CNN: Conv1D(32,k=6) → Conv1D(64,k=3) → MaxPool → GlobalAvgPool → Dense(128, drop=0.4) → Dense(64, drop=0.3) → Dense(4, softmax). L2 regularisation on dense layers.</p></div>
+        <div class="model-card"><div class="mc-title">Feature Selection</div><p>3-stage funnel: VarianceThreshold removes zero-signal columns, Mutual Information ranks by class-discriminative power, correlation pruning drops features with r > 0.95.</p></div>
+        <div class="model-card"><div class="mc-title">Evaluation</div><p>Primary metric: Macro F1. Accuracy is misleading with class imbalance — a naive majority classifier scores high accuracy but near-zero Macro F1. ROC-AUC (OvR, macro) used as a confidence check.</p></div>
+        <div class="model-card"><div class="mc-title">Baselines</div><p>RandomForest, XGBoost, LightGBM, ExtraTrees, and GradientBoosting across four resampling strategies. CNN evaluated separately with the same preprocessing pipeline.</p></div>
+        <div class="model-card"><div class="mc-title">Files</div><p>Model: <code>model/cnn_model.keras</code><br>Scaler: <code>model/scaler.pkl</code><br>Encoder: <code>model/label_encoder.pkl</code><br>Features: <code>model/features.pkl</code><br>API: <code>api/predict.py</code> → <code>/api/predict</code></p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>ShieldNet IDS — CIC-IDS 4-Class Classifier</span>
+      <span>CNN · XGBoost · LightGBM · SMOTE</span>
+    </div>
+  </footer>
+
+  <script src="static/js/main.js"></script>
+</body>
+</html>
